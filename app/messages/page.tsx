@@ -21,8 +21,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-// Sample conversations data
-const conversations = [
+// Sample initial conversations data
+const initialConversations = [
   {
     id: 1,
     name: "Ms. Johnson",
@@ -109,16 +109,29 @@ const automatedReplies = [
 ]
 
 export default function MessagesPage() {
-  const [selectedConversation, setSelectedConversation] = useState(conversations[0])
+  // Move conversations to state so changes trigger re-renders
+  const [conversations, setConversations] = useState(initialConversations)
+  const [selectedConversation, setSelectedConversation] = useState(initialConversations[0])
   const [messages, setMessages] = useState(sampleMessages)
   const [newMessage, setNewMessage] = useState("")
   const [showConversations, setShowConversations] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
   const [newContact, setNewContact] = useState({ name: "", role: "", avatar: "/placeholder.svg?height=40&width=40" })
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [contactAdded, setContactAdded] = useState(false)
+  const [formError, setFormError] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const handleAddContact = () => {
-    if (!newContact.name.trim()) return
+  const handleAddContact = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate form
+    if (!newContact.name.trim()) {
+      setFormError("Name is required")
+      return
+    }
+
+    setFormError("")
 
     const initials = newContact.name
       .split(" ")
@@ -128,25 +141,35 @@ export default function MessagesPage() {
       .substring(0, 2)
 
     const newConversation = {
-      id: conversations.length + 1,
+      id: Date.now(), // Use timestamp for unique ID
       name: newContact.name,
       role: newContact.role || "Staff",
-      avatar: newContact.avatar,
+      avatar: "/placeholder.svg?height=40&width=40",
       initials: initials,
       lastMessage: "No messages yet",
       time: "Just now",
       unread: false,
     }
 
-    // Add the new conversation to the list
-    conversations.unshift(newConversation)
-
-    // Reset the form
-    setNewContact({ name: "", role: "", avatar: "/placeholder.svg?height=40&width=40" })
+    // Update conversations state to trigger re-render
+    const updatedConversations = [newConversation, ...conversations]
+    setConversations(updatedConversations)
 
     // Select the new conversation
     setSelectedConversation(newConversation)
+
+    // Clear messages for the new conversation
     setMessages([])
+
+    // Reset form
+    setNewContact({ name: "", role: "", avatar: "/placeholder.svg?height=40&width=40" })
+
+    // Close dialog
+    setDialogOpen(false)
+
+    // Show success message
+    setContactAdded(true)
+    setTimeout(() => setContactAdded(false), 3000)
 
     // On mobile, switch to message view
     setShowConversations(false)
@@ -191,6 +214,19 @@ export default function MessagesPage() {
     setMessages([...messages, userMsg])
     setNewMessage("")
 
+    // Update the last message in the conversation
+    const updatedConversations = conversations.map((conv) =>
+      conv.id === selectedConversation.id ? { ...conv, lastMessage: newMessage, time: "Just now" } : conv,
+    )
+    setConversations(updatedConversations)
+
+    // Update selected conversation
+    setSelectedConversation((prev) => ({
+      ...prev,
+      lastMessage: newMessage,
+      time: "Just now",
+    }))
+
     // Show typing indicator
     setIsTyping(true)
 
@@ -228,7 +264,7 @@ export default function MessagesPage() {
         <div className={`md:col-span-1 space-y-4 ${showConversations ? "block" : "hidden md:block"}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Conversations</h2>
-            <Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -236,53 +272,71 @@ export default function MessagesPage() {
                 </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Contact</DialogTitle>
-                  <DialogDescription>Add a new teacher or staff member to your conversations.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">
-                      Name
-                    </Label>
-                    <Input
-                      id="name"
-                      value={newContact.name}
-                      onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                      className="col-span-3"
-                      placeholder="Enter name"
-                    />
+                <form onSubmit={handleAddContact}>
+                  <DialogHeader>
+                    <DialogTitle>Add New Contact</DialogTitle>
+                    <DialogDescription>Add a new teacher or staff member to your conversations.</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">
+                        Name
+                      </Label>
+                      <div className="col-span-3">
+                        <Input
+                          id="name"
+                          value={newContact.name}
+                          onChange={(e) => {
+                            setNewContact({ ...newContact, name: e.target.value })
+                            if (e.target.value.trim()) setFormError("")
+                          }}
+                          className={formError ? "border-red-500" : ""}
+                          placeholder="Enter name"
+                          required
+                        />
+                        {formError && <p className="text-xs text-red-500 mt-1">{formError}</p>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="role" className="text-right">
+                        Role
+                      </Label>
+                      <Select
+                        value={newContact.role}
+                        onValueChange={(value) => setNewContact({ ...newContact, role: value })}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Math Teacher">Math Teacher</SelectItem>
+                          <SelectItem value="Science Teacher">Science Teacher</SelectItem>
+                          <SelectItem value="English Teacher">English Teacher</SelectItem>
+                          <SelectItem value="History Teacher">History Teacher</SelectItem>
+                          <SelectItem value="Principal">Principal</SelectItem>
+                          <SelectItem value="Counselor">Counselor</SelectItem>
+                          <SelectItem value="Staff">Staff</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="role" className="text-right">
-                      Role
-                    </Label>
-                    <Select
-                      value={newContact.role}
-                      onValueChange={(value) => setNewContact({ ...newContact, role: value })}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Math Teacher">Math Teacher</SelectItem>
-                        <SelectItem value="Science Teacher">Science Teacher</SelectItem>
-                        <SelectItem value="English Teacher">English Teacher</SelectItem>
-                        <SelectItem value="History Teacher">History Teacher</SelectItem>
-                        <SelectItem value="Principal">Principal</SelectItem>
-                        <SelectItem value="Counselor">Counselor</SelectItem>
-                        <SelectItem value="Staff">Staff</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleAddContact}>Add Contact</Button>
-                </DialogFooter>
+                  <DialogFooter>
+                    <Button type="submit">Add Contact</Button>
+                  </DialogFooter>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
           <div className="space-y-2 overflow-auto max-h-[calc(100vh-280px)] scrollbar-thin">
+            {contactAdded && (
+              <div className="rounded-md bg-green-50 p-2 mb-2 dark:bg-green-900/20">
+                <div className="flex">
+                  <div className="text-sm font-medium text-green-800 dark:text-green-400">
+                    Contact added successfully!
+                  </div>
+                </div>
+              </div>
+            )}
             {conversations.map((conversation) => (
               <Card
                 key={conversation.id}
@@ -330,33 +384,45 @@ export default function MessagesPage() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto space-y-4 p-4 scrollbar-thin messages-container">
-              {messages.map((message) => (
-                <div key={message.id} className={`flex items-start gap-3 text-sm ${message.isMe ? "justify-end" : ""}`}>
-                  {!message.isMe && (
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src={selectedConversation.avatar} alt={selectedConversation.name} />
-                      <AvatarFallback>{selectedConversation.initials}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div className={`grid gap-1 max-w-[75%] ${message.isMe ? "ml-auto" : ""}`}>
-                    {!message.isMe && <div className="font-semibold">{message.sender}</div>}
-                    <div
-                      className={`rounded-lg p-3 break-words ${message.isMe ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-                    >
-                      <p>{message.content}</p>
+              {messages.length > 0 ? (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex items-start gap-3 text-sm ${message.isMe ? "justify-end" : ""}`}
+                  >
+                    {!message.isMe && (
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src={selectedConversation.avatar} alt={selectedConversation.name} />
+                        <AvatarFallback>{selectedConversation.initials}</AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div className={`grid gap-1 max-w-[75%] ${message.isMe ? "ml-auto" : ""}`}>
+                      {!message.isMe && <div className="font-semibold">{message.sender}</div>}
+                      <div
+                        className={`rounded-lg p-3 break-words ${message.isMe ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                      >
+                        <p>{message.content}</p>
+                      </div>
+                      <div className={`text-xs text-muted-foreground ${message.isMe ? "justify-self-end" : ""}`}>
+                        {message.time}
+                      </div>
                     </div>
-                    <div className={`text-xs text-muted-foreground ${message.isMe ? "justify-self-end" : ""}`}>
-                      {message.time}
-                    </div>
+                    {message.isMe && (
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src="/placeholder.svg?height=32&width=32" alt="You" />
+                        <AvatarFallback>YO</AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
-                  {message.isMe && (
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src="/placeholder.svg?height=32&width=32" alt="You" />
-                      <AvatarFallback>YO</AvatarFallback>
-                    </Avatar>
-                  )}
+                ))
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <p>No messages yet</p>
+                    <p className="text-sm">Send a message to start the conversation</p>
+                  </div>
                 </div>
-              ))}
+              )}
 
               {/* Typing indicator */}
               {isTyping && (
@@ -395,7 +461,7 @@ export default function MessagesPage() {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                 />
-                <Button type="submit" size="icon">
+                <Button type="submit" size="icon" disabled={!newMessage.trim()}>
                   <Send className="h-4 w-4" />
                   <span className="sr-only">Send message</span>
                 </Button>

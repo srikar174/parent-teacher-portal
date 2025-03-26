@@ -21,9 +21,105 @@ export default function SettingsPage() {
   const [preferencesSubmitted, setPreferencesSubmitted] = useState(false)
   const [activeTab, setActiveTab] = useState("profile")
 
+  // Password form state
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+
+  // Password validation errors
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+    general: "",
+  })
+
+  const [feedbackForm, setFeedbackForm] = useState({
+    type: "general",
+    subject: "",
+    message: "",
+    anonymous: false,
+  })
+
+  const [feedbackErrors, setFeedbackErrors] = useState({
+    subject: "",
+    message: "",
+  })
+
+  const handleFeedbackChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFeedbackForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+
+    // Clear error when user types
+    if (feedbackErrors[name as keyof typeof feedbackErrors]) {
+      setFeedbackErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }))
+    }
+  }
+
+  const handleFeedbackSwitchChange = (checked: boolean) => {
+    setFeedbackForm((prev) => ({
+      ...prev,
+      anonymous: checked,
+    }))
+  }
+
+  const handleFeedbackTypeChange = (value: string) => {
+    setFeedbackForm((prev) => ({
+      ...prev,
+      type: value,
+    }))
+  }
+
+  const validateFeedbackForm = () => {
+    const errors = {
+      subject: "",
+      message: "",
+    }
+    let isValid = true
+
+    if (!feedbackForm.subject.trim()) {
+      errors.subject = "Subject is required"
+      isValid = false
+    }
+
+    if (!feedbackForm.message.trim()) {
+      errors.message = "Message is required"
+      isValid = false
+    } else if (feedbackForm.message.trim().length < 10) {
+      errors.message = "Message must be at least 10 characters"
+      isValid = false
+    }
+
+    setFeedbackErrors(errors)
+    return isValid
+  }
+
   const handleFeedbackSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate form
+    if (!validateFeedbackForm()) {
+      return
+    }
+
+    // If validation passes, show success message
     setFeedbackSubmitted(true)
+
+    // Reset form
+    setFeedbackForm({
+      type: "general",
+      subject: "",
+      message: "",
+      anonymous: false,
+    })
 
     // Use a cleanup function to prevent state updates after unmounting
     setTimeout(() => {
@@ -41,9 +137,76 @@ export default function SettingsPage() {
     }, 3000)
   }
 
-  const handlePasswordSubmit = (e: React.MouseEvent) => {
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setPasswordForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+
+    // Clear error when user types
+    if (passwordErrors[name as keyof typeof passwordErrors]) {
+      setPasswordErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }))
+    }
+  }
+
+  const validatePasswordForm = () => {
+    const errors = {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      general: "",
+    }
+    let isValid = true
+
+    // Validate current password
+    if (!passwordForm.currentPassword) {
+      errors.currentPassword = "Current password is required"
+      isValid = false
+    }
+
+    // Validate new password
+    if (!passwordForm.newPassword) {
+      errors.newPassword = "New password is required"
+      isValid = false
+    } else if (passwordForm.newPassword.length < 8) {
+      errors.newPassword = "Password must be at least 8 characters"
+      isValid = false
+    }
+
+    // Validate confirm password
+    if (!passwordForm.confirmPassword) {
+      errors.confirmPassword = "Please confirm your new password"
+      isValid = false
+    } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = "Passwords do not match"
+      isValid = false
+    }
+
+    setPasswordErrors(errors)
+    return isValid
+  }
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate form
+    if (!validatePasswordForm()) {
+      return
+    }
+
+    // If validation passes, show success message
     setPasswordSubmitted(true)
+
+    // Reset form
+    setPasswordForm({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    })
 
     // Use a cleanup function to prevent state updates after unmounting
     setTimeout(() => {
@@ -152,44 +315,89 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Security</CardTitle>
-              <CardDescription>Update your password and security settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                <Label htmlFor="current-password" className="sm:text-right">
-                  Current Password
-                </Label>
-                <Input id="current-password" type="password" className="sm:col-span-3" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                <Label htmlFor="new-password" className="sm:text-right">
-                  New Password
-                </Label>
-                <Input id="new-password" type="password" className="sm:col-span-3" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                <Label htmlFor="confirm-password" className="sm:text-right">
-                  Confirm Password
-                </Label>
-                <Input id="confirm-password" type="password" className="sm:col-span-3" />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-2">
-              {passwordSubmitted && (
-                <div className="w-full rounded-md bg-green-50 p-4 dark:bg-green-900/20">
-                  <div className="flex">
-                    <div className="text-sm font-medium text-green-800 dark:text-green-400">
-                      Password updated successfully!
-                    </div>
+            <form onSubmit={handlePasswordSubmit}>
+              <CardHeader>
+                <CardTitle>Security</CardTitle>
+                <CardDescription>Update your password and security settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label htmlFor="current-password" className="sm:text-right">
+                    Current Password
+                  </Label>
+                  <div className="sm:col-span-3">
+                    <Input
+                      id="current-password"
+                      name="currentPassword"
+                      type="password"
+                      value={passwordForm.currentPassword}
+                      onChange={handlePasswordChange}
+                      className={passwordErrors.currentPassword ? "border-red-500" : ""}
+                    />
+                    {passwordErrors.currentPassword && (
+                      <p className="text-xs text-red-500 mt-1">{passwordErrors.currentPassword}</p>
+                    )}
                   </div>
                 </div>
-              )}
-              <Button className="w-full sm:w-auto" onClick={handlePasswordSubmit}>
-                Update Password
-              </Button>
-            </CardFooter>
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label htmlFor="new-password" className="sm:text-right">
+                    New Password
+                  </Label>
+                  <div className="sm:col-span-3">
+                    <Input
+                      id="new-password"
+                      name="newPassword"
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={handlePasswordChange}
+                      className={passwordErrors.newPassword ? "border-red-500" : ""}
+                    />
+                    {passwordErrors.newPassword && (
+                      <p className="text-xs text-red-500 mt-1">{passwordErrors.newPassword}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                  <Label htmlFor="confirm-password" className="sm:text-right">
+                    Confirm Password
+                  </Label>
+                  <div className="sm:col-span-3">
+                    <Input
+                      id="confirm-password"
+                      name="confirmPassword"
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={handlePasswordChange}
+                      className={passwordErrors.confirmPassword ? "border-red-500" : ""}
+                    />
+                    {passwordErrors.confirmPassword && (
+                      <p className="text-xs text-red-500 mt-1">{passwordErrors.confirmPassword}</p>
+                    )}
+                  </div>
+                </div>
+                {passwordErrors.general && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                    <div className="sm:col-span-3 sm:col-start-2">
+                      <p className="text-sm text-red-500">{passwordErrors.general}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-2">
+                {passwordSubmitted && (
+                  <div className="w-full rounded-md bg-green-50 p-4 dark:bg-green-900/20">
+                    <div className="flex">
+                      <div className="text-sm font-medium text-green-800 dark:text-green-400">
+                        Password updated successfully!
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <Button type="submit" className="w-full sm:w-auto">
+                  Update Password
+                </Button>
+              </CardFooter>
+            </form>
           </Card>
         </TabsContent>
 
@@ -292,7 +500,7 @@ export default function SettingsPage() {
                 <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="feedback-type">Feedback Type</Label>
-                    <Select defaultValue="general">
+                    <Select value={feedbackForm.type} onValueChange={handleFeedbackTypeChange}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select feedback type" />
                       </SelectTrigger>
@@ -306,18 +514,34 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" placeholder="Brief subject of your feedback" />
+                    <Input
+                      id="subject"
+                      name="subject"
+                      placeholder="Brief subject of your feedback"
+                      value={feedbackForm.subject}
+                      onChange={handleFeedbackChange}
+                      className={feedbackErrors.subject ? "border-red-500" : ""}
+                    />
+                    {feedbackErrors.subject && <p className="text-xs text-red-500 mt-1">{feedbackErrors.subject}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
                     <Textarea
                       id="message"
+                      name="message"
                       placeholder="Please provide details about your feedback"
-                      className="min-h-[150px]"
+                      className={`min-h-[150px] ${feedbackErrors.message ? "border-red-500" : ""}`}
+                      value={feedbackForm.message}
+                      onChange={handleFeedbackChange}
                     />
+                    {feedbackErrors.message && <p className="text-xs text-red-500 mt-1">{feedbackErrors.message}</p>}
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Switch id="anonymous" />
+                    <Switch
+                      id="anonymous"
+                      checked={feedbackForm.anonymous}
+                      onCheckedChange={handleFeedbackSwitchChange}
+                    />
                     <Label htmlFor="anonymous">Submit anonymously</Label>
                   </div>
                   {feedbackSubmitted && (

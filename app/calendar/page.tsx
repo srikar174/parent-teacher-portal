@@ -1,12 +1,14 @@
 "use client"
 
+import React from "react"
+
 import { useState, useCallback, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CalendarDays, Clock, MapPin, Plus } from "lucide-react"
+import { Clock, MapPin, Plus, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import {
   Dialog,
@@ -15,8 +17,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import { Toaster, toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Sample events data
 const events = [
@@ -46,82 +58,80 @@ const events = [
   },
 ]
 
-// Memoized event card component to prevent unnecessary re-renders
-const EventCard = memo(({ event, onClick }: { event: any; onClick: () => void }) => (
-  <Card className="cursor-pointer hover:bg-accent" onClick={onClick}>
-    <CardContent className="p-4">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">{event.title}</h3>
-        </div>
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Clock className="mr-1 h-4 w-4 shrink-0" />
-          <span>{event.time}</span>
-        </div>
-        <div className="flex items-center text-sm text-muted-foreground">
-          <MapPin className="mr-1 h-4 w-4 shrink-0" />
-          <span>{event.location}</span>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-))
+const EventCard = memo(
+  ({
+    event,
+    onClick,
+    onDelete,
+  }: {
+    event: any
+    onClick: () => void
+    onDelete: (id: number) => void
+  }) => {
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+    const handleDeleteClick = (e: React.MouseEvent) => {
+      e.stopPropagation() // Prevent triggering the card's onClick
+      setShowDeleteConfirm(true)
+    }
+
+    const handleConfirmDelete = () => {
+      onDelete(event.id)
+      setShowDeleteConfirm(false)
+    }
+
+    return (
+      <>
+        <Card className="cursor-pointer hover:bg-accent relative" onClick={onClick}>
+          <CardContent className="p-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">{event.title}</h3>
+                <button
+                  onClick={handleDeleteClick}
+                  className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-full hover:bg-destructive/10"
+                  aria-label="Delete event"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <Clock className="mr-1 h-4 w-4 shrink-0" />
+                <span>{event.time}</span>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MapPin className="mr-1 h-4 w-4 shrink-0" />
+                <span>{event.location}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>This will delete the event "{event.title}".</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    )
+  },
+)
 EventCard.displayName = "EventCard"
 
-// Memoized event details component
-const EventDetails = memo(({ event }: { event: any }) => (
-  <Card className="mt-6">
-    <CardHeader>
-      <CardTitle>{event.title}</CardTitle>
-      <CardDescription>Event Details</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <div className="font-medium">Date:</div>
-          <div className="sm:col-span-3">{new Date(event.date).toLocaleDateString()}</div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <div className="font-medium">Time:</div>
-          <div className="sm:col-span-3">{event.time}</div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <div className="font-medium">Location:</div>
-          <div className="sm:col-span-3">{event.location}</div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <div className="font-medium">Description:</div>
-          <div className="sm:col-span-3">{event.description}</div>
-        </div>
-      </div>
-    </CardContent>
-    <CardFooter className="flex flex-col sm:flex-row gap-2">
-      <Button variant="outline" className="w-full sm:w-auto">
-        Add to Calendar
-      </Button>
-      <Button className="w-full sm:w-auto">RSVP</Button>
-    </CardFooter>
-  </Card>
-))
-EventDetails.displayName = "EventDetails"
-
-// Memoized empty events placeholder
-const EmptyEventsPlaceholder = memo(() => (
-  <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed">
-    <div className="flex flex-col items-center space-y-2 text-center">
-      <CalendarDays className="h-10 w-10 text-muted-foreground" />
-      <h3 className="font-medium">No events for this day</h3>
-      <p className="text-sm text-muted-foreground">Select a different day or schedule a new appointment</p>
-    </div>
-  </div>
-))
-EmptyEventsPlaceholder.displayName = "EmptyEventsPlaceholder"
-
+// Update the main component to handle event deletion and undo functionality
 export default function CalendarPage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [showAppointmentForm, setShowAppointmentForm] = useState(false)
   const [showCalendar, setShowCalendar] = useState(true)
+  const [eventsState, setEventsState] = useState(events)
+  const [selectedEvent, setSelectedEvent] = useState<any>(null)
 
   // Add state for the new appointment form
   const [newAppointment, setNewAppointment] = useState({
@@ -137,14 +147,14 @@ export default function CalendarPage() {
 
     try {
       const selectedDate = date.toISOString().split("T")[0]
-      return events.filter((event) => {
+      return eventsState.filter((event) => {
         const eventDate = new Date(event.date).toISOString().split("T")[0]
         return eventDate === selectedDate
       })
     } catch (e) {
       return []
     }
-  }, [date])
+  }, [date, eventsState])
 
   // Memoized date formatter
   const formatDate = useCallback((date: Date | undefined) => {
@@ -162,31 +172,49 @@ export default function CalendarPage() {
   }, [])
 
   // Update the handleDateSelect function to also update the new appointment date
-  const handleDateSelect = useCallback((newDate: Date | undefined) => {
-    setDate(newDate)
-    setSelectedEvent(null)
-    setShowCalendar(false)
+  const handleDateSelect = useCallback(
+    (newDate: Date | undefined) => {
+      setDate(newDate)
+      setSelectedEvent(null)
+      setShowCalendar(false)
 
-    // Update the appointment date when a new date is selected
-    if (newDate) {
-      setNewAppointment((prev) => ({
-        ...prev,
-        date: newDate.toISOString().split("T")[0],
-      }))
-    }
-  }, [])
+      // Update the appointment date when a new date is selected
+      if (newDate) {
+        setNewAppointment((prev) => ({
+          ...prev,
+          date: newDate.toISOString().split("T")[0],
+        }))
+      }
+    },
+    [setSelectedEvent, setDate, setNewAppointment, setShowCalendar],
+  )
 
   // Add a function to handle appointment submission
   const handleAppointmentSubmit = () => {
     // Validate form
-    if (!newAppointment.teacher || !newAppointment.date || !newAppointment.time || !newAppointment.reason) {
-      alert("Please fill out all fields")
+    if (!newAppointment.teacher) {
+      alert("Please enter a teacher name")
+      return
+    }
+
+    if (!newAppointment.date) {
+      alert("Please select a date")
+      return
+    }
+
+    if (!newAppointment.time) {
+      alert("Please select a time")
+      return
+    }
+
+    if (!newAppointment.reason) {
+      alert("Please enter a reason for the appointment")
       return
     }
 
     // Create new event
     const newEvent = {
-      id: events.length + 1,
+      id: eventsState.length > 0 ? Math.max(...eventsState.map((e) => e.id)) + 1 : 1,
       title: `Meeting with ${newAppointment.teacher}`,
       date: newAppointment.date,
       time: newAppointment.time,
@@ -195,7 +223,7 @@ export default function CalendarPage() {
     }
 
     // Add to events array
-    events.unshift(newEvent)
+    setEventsState((prev) => [newEvent, ...prev])
 
     // Reset form
     setNewAppointment({
@@ -205,14 +233,46 @@ export default function CalendarPage() {
       reason: "",
     })
 
-    // Close dialog
+    // Close dialog automatically after successful scheduling
     setShowAppointmentForm(false)
+  }
 
-    // Select the new event if it's on the currently selected date
-    if (date && date.toISOString().split("T")[0] === newAppointment.date) {
-      setSelectedEvent(newEvent)
+  // Handle event deletion
+  const handleDeleteEvent = (id: number) => {
+    const eventToDelete = eventsState.find((event) => event.id === id)
+    if (eventToDelete) {
+      // Store the deleted event for potential undo
+      const deletedEvent = { ...eventToDelete }
+
+      // Remove the event from the state
+      setEventsState(eventsState.filter((event) => event.id !== id))
+
+      // Show toast with undo option
+      toast(`Event "${deletedEvent.title}" deleted`, {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            // Add the event back to the state
+            setEventsState((prev) => [...prev, deletedEvent])
+            toast.success(`Event "${deletedEvent.title}" restored`)
+          },
+        },
+        duration: 5000,
+      })
     }
   }
+
+  // Clean up timeout on unmount
+  React.useEffect(() => {
+    // Cleanup if needed
+    return () => {}
+  }, [])
+
+  const EmptyEventsPlaceholder = () => (
+    <div className="text-center py-6">
+      <p className="text-muted-foreground">No events scheduled for this day.</p>
+    </div>
+  )
 
   // Get filtered events
   const currentEvents = filteredEvents()
@@ -277,13 +337,12 @@ export default function CalendarPage() {
               </div>
             </CardContent>
             <CardFooter>
+              <Button className="w-full" onClick={() => setShowAppointmentForm(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Schedule Appointment
+              </Button>
+
               <Dialog open={showAppointmentForm} onOpenChange={setShowAppointmentForm}>
-                <DialogTrigger asChild>
-                  <Button className="w-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Schedule Appointment
-                  </Button>
-                </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Schedule an Appointment</DialogTitle>
@@ -355,13 +414,13 @@ export default function CalendarPage() {
           <Card>
             <CardHeader>
               <CardTitle>{formatDate(date)}</CardTitle>
-              <CardDescription>{currentEvents.length} events scheduled for this day</CardDescription>
+              <CardDescription>{filteredEvents().length} events scheduled for this day</CardDescription>
             </CardHeader>
             <CardContent>
-              {currentEvents.length > 0 ? (
+              {filteredEvents().length > 0 ? (
                 <div className="space-y-4">
-                  {currentEvents.map((event) => (
-                    <EventCard key={event.id} event={event} onClick={() => setSelectedEvent(event)} />
+                  {filteredEvents().map((event) => (
+                    <EventCard key={event.id} event={event} onClick={() => {}} onDelete={handleDeleteEvent} />
                   ))}
                 </div>
               ) : (
@@ -369,10 +428,9 @@ export default function CalendarPage() {
               )}
             </CardContent>
           </Card>
-
-          {selectedEvent && <EventDetails event={selectedEvent} />}
         </div>
       </div>
+      <Toaster position="bottom-right" />
     </div>
   )
 }
